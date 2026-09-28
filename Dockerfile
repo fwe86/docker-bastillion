@@ -16,14 +16,23 @@ RUN groupadd --gid 10001 bastillion \
         --create-home \
         --shell /usr/sbin/nologin \
         bastillion \
-    && mkdir -p /data/bastillion /opt/bastillion/licenses \
+    && mkdir -p \
+        /data/bastillion \
+        /opt/bastillion/licenses/packaging \
+        /opt/bastillion/licenses/upstream \
+        /opt/bastillion/licenses/jar-notices \
     && chown -R 10001:10001 /data/bastillion /opt/bastillion
 
 WORKDIR /opt/bastillion
 
 COPY --chown=10001:10001 .build/bastillion.jar /opt/bastillion/bastillion.jar
-COPY --chown=10001:10001 .build/LICENSE.md /opt/bastillion/licenses/LICENSE.md
-COPY --chown=10001:10001 .build/3rdPartyLicenses.md /opt/bastillion/licenses/3rdPartyLicenses.md
+
+COPY --chown=10001:10001 LICENSE /opt/bastillion/licenses/packaging/LICENSE-MIT
+COPY --chown=10001:10001 NOTICE.md /opt/bastillion/licenses/packaging/NOTICE.md
+
+COPY --chown=10001:10001 .build/LICENSE.md /opt/bastillion/licenses/upstream/LICENSE.md
+COPY --chown=10001:10001 .build/3rdPartyLicenses.md /opt/bastillion/licenses/upstream/3rdPartyLicenses.md
+COPY --chown=10001:10001 .build/jar-notices/ /opt/bastillion/licenses/jar-notices/
 
 ENV CONFIG_DIR=/data/bastillion/
 
