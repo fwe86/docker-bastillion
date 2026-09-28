@@ -3,7 +3,7 @@ FROM eclipse-temurin:21-jre-noble
 ARG BASTILLION_VERSION
 
 LABEL org.opencontainers.image.title="Bastillion"
-LABEL org.opencontainers.image.description="Unofficial container image for Bastillion built from the official upstream release artifact"
+LABEL org.opencontainers.image.description="Unofficial Docker image for Bastillion built from the official upstream release artifact"
 LABEL org.opencontainers.image.version="${BASTILLION_VERSION}"
 LABEL org.opencontainers.image.source="https://github.com/fwe86/docker-bastillion"
 LABEL org.opencontainers.image.url="https://github.com/fwe86/docker-bastillion"
@@ -21,19 +21,11 @@ RUN groupadd --gid 10001 bastillion \
 
 WORKDIR /opt/bastillion
 
-COPY --chown=10001:10001 \
-    .build/upstream/bastillion.jar \
-    /opt/bastillion/bastillion.jar
+COPY --chown=10001:10001 .build/bastillion.jar /opt/bastillion/bastillion.jar
+COPY --chown=10001:10001 .build/LICENSE.md /opt/bastillion/licenses/LICENSE.md
+COPY --chown=10001:10001 .build/3rdPartyLicenses.md /opt/bastillion/licenses/3rdPartyLicenses.md
 
-COPY --chown=10001:10001 \
-    .build/upstream/LICENSE.md \
-    /opt/bastillion/licenses/LICENSE.md
-
-COPY --chown=10001:10001 \
-    .build/upstream/3rdPartyLicenses.md \
-    /opt/bastillion/licenses/3rdPartyLicenses.md
-
-ENV CONFIG_DIR=/data/bastillion
+ENV CONFIG_DIR=/data/bastillion/
 
 USER 10001:10001
 

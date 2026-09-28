@@ -1,0 +1,248 @@
+name: Build and publish
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - ".upstream"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: docker-bastillion
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_REPO: Loophole-LLC/Bastillion
+  IMAGE_NAME: ghcr.io/fwe86/docker-bastillion
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Determine latest stable Bastillion release
+        id: upstream
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          release="$(
+            curl               --fail               --silent               --show-error               --location               --header "Accept: application/vnd.github+json"               --header "Authorization: Bearer ${GH_TOKEN}"               --header "X-GitHub-Api-Version: 2022-11-28"               "https://api.github.com/repos/${UPSTREAM_REPO}/releases/latest"
+          )"
+
+          draft="$(jq -r '.draft' <<< "${release}")"
+          prerelease="$(jq -r '.prerelease' <<< "${release}")"
+          tag="$(jq -r '.tag_name' <<< "${release}")"
+          release_url="$(jq -r '.html_url' <<< "${release}")"
+
+          if [[ "${draft}" != "false" || "${prerelease}" != "false" ]]; then
+            echo "ERROR: Latest release is not stable." >&2
+            exit 1
+          fi
+
+          if [[ -z "${tag}" || "${tag}" == "null" ]]; then
+            echo "ERROR: No release tag found." >&2
+            exit 1
+          fi
+
+          version="${tag#v}"
+          asset_name="bastillion-${version}.jar"
+
+          asset_count="$(
+            jq               --arg name "${asset_name}"               '[.assets[] | select(.name == $name)] | length'               <<< "${release}"
+          )"
+
+          if [[ "${asset_count}" != "1" ]]; then
+            echo "ERROR: Expected exactly one ${asset_name} asset." >&2
+            exit 1
+          fi
+
+          asset_url="$(
+            jq -r               --arg name "${asset_name}"               '.assets[] | select(.name == $name) | .browser_download_url'               <<< "${release}"
+          )"
+
+          digest="$(
+            jq -r               --arg name "${asset_name}"               '.assets[] | select(.name == $name) | .digest'               <<< "${release}"
+          )"
+
+          if [[ ! "${digest}" =~ ^sha256:[0-9a-fA-F]{64}$ ]]; then
+            echo "ERROR: Missing or invalid SHA-256 digest." >&2
+            exit 1
+          fi
+
+          sha256="${digest#sha256:}"
+
+          stored_version="$(
+            grep '^BASTILLION_VERSION=' .upstream 2>/dev/null               | cut -d= -f2- || true
+          )"
+
+          stored_sha256="$(
+            grep '^BASTILLION_SHA256=' .upstream 2>/dev/null               | cut -d= -f2- || true
+          )"
+
+          build="true"
+
+          if [[ "${GITHUB_EVENT_NAME}" == "schedule"              && "${stored_version}" == "${version}"              && "${stored_sha256}" == "${sha256}" ]]; then
+            build="false"
+          fi
+
+          {
+            echo "build=${build}"
+            echo "version=${version}"
+            echo "tag=${tag}"
+            echo "sha256=${sha256}"
+            echo "asset_url=${asset_url}"
+            echo "release_url=${release_url}"
+          } >> "${GITHUB_OUTPUT}"
+
+          echo "Bastillion version: ${version}"
+          echo "Build required: ${build}"
+
+      - name: Download and verify upstream files
+        if: steps.upstream.outputs.build == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p .build
+
+          curl             --fail             --silent             --show-error             --location             "${{ steps.upstream.outputs.asset_url }}"             --output .build/bastillion.jar
+
+          printf '%s  %s\n'             "${{ steps.upstream.outputs.sha256 }}"             ".build/bastillion.jar"             | sha256sum --check -
+
+          curl             --fail             --silent             --show-error             --location             "https://raw.githubusercontent.com/${UPSTREAM_REPO}/${{ steps.upstream.outputs.tag }}/LICENSE.md"             --output .build/LICENSE.md
+
+          curl             --fail             --silent             --show-error             --location             "https://raw.githubusercontent.com/${UPSTREAM_REPO}/${{ steps.upstream.outputs.tag }}/3rdPartyLicenses.md"             --output .build/3rdPartyLicenses.md
+
+      - name: Set up QEMU
+        if: steps.upstream.outputs.build == 'true'
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        if: steps.upstream.outputs.build == 'true'
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Build verification image
+        if: steps.upstream.outputs.build == 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          load: true
+          push: false
+          provenance: false
+          sbom: false
+          tags: docker-bastillion:test
+          build-args: |
+            BASTILLION_VERSION=${{ steps.upstream.outputs.version }}
+
+      - name: Test container
+        if: steps.upstream.outputs.build == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          container="$(
+            docker run               --detach               --env TLS_ENABLED=false               --env PORT=8080               --publish 127.0.0.1:18080:8080               docker-bastillion:test
+          )"
+
+          cleanup() {
+            docker rm -f "${container}" >/dev/null 2>&1 || true
+          }
+
+          trap cleanup EXIT
+
+          for attempt in $(seq 1 60); do
+            running="$(
+              docker inspect                 --format '{{.State.Running}}'                 "${container}"                 2>/dev/null || true
+            )"
+
+            if [[ "${running}" != "true" ]]; then
+              docker logs "${container}" >&2 || true
+              exit 1
+            fi
+
+            http_code="$(
+              curl                 --silent                 --output /dev/null                 --max-time 2                 --write-out '%{http_code}'                 http://127.0.0.1:18080/                 2>/dev/null || true
+            )"
+
+            if [[ "${http_code}" =~ ^[234][0-9][0-9]$ ]]; then
+              echo "Bastillion responded with HTTP ${http_code}."
+              exit 0
+            fi
+
+            sleep 2
+          done
+
+          docker logs "${container}" >&2 || true
+          echo "ERROR: Bastillion did not become ready." >&2
+          exit 1
+
+      - name: Log in to GitHub Container Registry
+        if: steps.upstream.outputs.build == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish image
+        if: steps.upstream.outputs.build == 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ steps.upstream.outputs.version }}
+            ${{ env.IMAGE_NAME }}:latest
+          build-args: |
+            BASTILLION_VERSION=${{ steps.upstream.outputs.version }}
+
+      - name: Update upstream state
+        if: steps.upstream.outputs.build == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch origin main
+          git rebase origin/main
+
+          {
+            echo "BASTILLION_VERSION=${{ steps.upstream.outputs.version }}"
+            echo "BASTILLION_TAG=${{ steps.upstream.outputs.tag }}"
+            echo "BASTILLION_SHA256=${{ steps.upstream.outputs.sha256 }}"
+            echo "IMAGE=${IMAGE_NAME}"
+            echo "SOURCE_RELEASE=${{ steps.upstream.outputs.release_url }}"
+          } > .upstream
+
+          if git diff --quiet -- .upstream; then
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add .upstream
+          git commit -m "chore: update Bastillion upstream to ${{ steps.upstream.outputs.version }}"
+          git push origin HEAD:main
