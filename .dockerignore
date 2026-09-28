@@ -1,0 +1,7 @@
+*
+!Dockerfile
+!.build/
+!.build/upstream/
+!.build/upstream/bastillion.jar
+!.build/upstream/LICENSE.md
+!.build/upstream/3rdPartyLicenses.md
