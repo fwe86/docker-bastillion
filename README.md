@@ -124,9 +124,11 @@ The complete generated compliance bundle is embedded in each image under:
 
 It contains component-specific Maven and npm legal files, Maven source JARs
 where published, inherited POM/manifest license metadata, canonical SPDX full
-license texts used only as a fallback when project artifacts omit them, hashes,
-the dependency inventory, and the legal resources preserved from the official
-Bastillion JAR. Maven coordinates found only inside the shaded release JAR are
+license texts used only as a fallback when project artifacts omit them, and —
+for Maven modules that omit a repository-root MIT/BSD notice from their JARs —
+project-authored legal files recovered from the exact GitHub SCM release tag
+declared by the module's POM chain. It also contains hashes, the dependency
+inventory, and the legal resources preserved from the official Bastillion JAR. Maven coordinates found only inside the shaded release JAR are
 materialized and checked as well.
 
 Base-image licensing information is retained separately under:

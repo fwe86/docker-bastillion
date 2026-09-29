@@ -463,12 +463,117 @@ def materialize_declared_license_urls(urls: list[str], destination: Path) -> lis
     return copied
 
 
+def github_repository_from_metadata(project_url: str, scm_values: list[str]) -> tuple[str, str] | None:
+    """Return (owner, repository) only for an explicitly declared GitHub repository.
+
+    Maven POM SCM values occur in several forms (https URL, git@github.com,
+    scm:git:...). Restricting recovery to github.com/raw.githubusercontent.com
+    keeps the fallback deterministic and avoids fetching arbitrary URLs from POMs.
+    """
+    values = [project_url] + list(scm_values)
+    patterns = (
+        r"https?://github\.com/([^/]+)/([^/#?]+)",
+        r"(?:scm:git:)?git@github\.com:([^/]+)/([^/#?]+)",
+        r"(?:scm:git:)?git://github\.com/([^/]+)/([^/#?]+)",
+        r"(?:scm:git:)?https?://github\.com/([^/]+)/([^/#?]+)",
+    )
+    for value in values:
+        for pattern in patterns:
+            match = re.search(pattern, value)
+            if not match:
+                continue
+            owner = match.group(1).strip()
+            repo = re.sub(r"\.git$", "", match.group(2).strip())
+            if owner and repo:
+                return owner, repo
+    return None
+
+
+def github_tag_candidates(scm_values: list[str], version: str) -> list[str]:
+    """Prefer an explicit Maven SCM tag, then exact version conventions."""
+    result: list[str] = []
+    for value in scm_values:
+        candidate = value.strip()
+        if not candidate or candidate.upper() == "HEAD":
+            continue
+        if any(token in candidate for token in ("github.com", "git@", "scm:", "://")):
+            continue
+        if re.fullmatch(r"[A-Za-z0-9._+/-]{1,120}", candidate):
+            result.append(candidate)
+    result.extend([f"v{version}", version])
+    deduped: list[str] = []
+    for candidate in result:
+        if candidate not in deduped:
+            deduped.append(candidate)
+    return deduped
+
+
+def materialize_github_project_legal(
+    project_url: str,
+    scm_values: list[str],
+    version: str,
+    destination: Path,
+) -> list[str]:
+    """Recover project-authored legal files from the exact declared GitHub tag.
+
+    This is a last-resort recovery path for artifacts such as java-saml-core 2.9.0
+    whose Maven binary/source JARs omit the repository-root LICENSE even though the
+    parent POM declares the exact SCM repository and release tag. No default branch
+    is consulted: compliance evidence must be version-specific.
+    """
+    repo = github_repository_from_metadata(project_url, scm_values)
+    if repo is None:
+        return []
+    owner, repository = repo
+    filenames = (
+        "LICENSE", "LICENSE.txt", "LICENSE.md",
+        "LICENCE", "LICENCE.txt", "LICENCE.md",
+        "COPYING", "COPYING.txt", "COPYING.md",
+        "NOTICE", "NOTICE.txt", "NOTICE.md",
+        "COPYRIGHT", "COPYRIGHT.txt", "COPYRIGHT.md",
+    )
+    for tag in github_tag_candidates(scm_values, version):
+        copied: list[str] = []
+        tag_dir = destination / clean_segment(tag)
+        for filename in filenames:
+            target = tag_dir / filename
+            url = f"https://raw.githubusercontent.com/{owner}/{repository}/{tag}/{filename}"
+            if fetch_url(url, target):
+                copied.append(target.relative_to(destination).as_posix())
+        if copied:
+            origin = tag_dir / "ORIGIN.txt"
+            origin.write_text(
+                f"Repository: https://github.com/{owner}/{repository}\n"
+                f"Tag: {tag}\n"
+                "Files above were retrieved from raw.githubusercontent.com at this exact tag.\n",
+                encoding="utf-8",
+            )
+            copied.append(origin.relative_to(destination).as_posix())
+            return copied
+        if tag_dir.exists():
+            shutil.rmtree(tag_dir)
+    return []
+
+
 def looks_like_full_permissive_notice(text: str) -> bool:
     lower = text.lower()
     return (
         ("permission is hereby granted" in lower and "copyright" in lower)
         or ("redistribution and use in source and binary forms" in lower and "copyright" in lower)
     )
+
+
+def files_contain_full_permissive_notice(paths: list[Path]) -> bool:
+    for path in paths:
+        try:
+            if path.stat().st_size > 2_000_000:
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        if looks_like_full_permissive_notice(text):
+            return True
+    return False
 
 
 def extract_copyright_evidence(pom_chain: list[Path], source_jar: Path | None, destination: Path) -> int:
@@ -731,7 +836,31 @@ def main() -> int:
             legal_dir / "COPYRIGHT-EVIDENCE.txt",
         )
 
+        # Some Maven modules omit a repository-root LICENSE from both their binary
+        # and source JARs. If the exact POM chain declares a GitHub repository/tag,
+        # recover the project-authored legal file from that exact release tag. This
+        # is especially important for MIT/BSD works because the project-specific
+        # copyright notice must accompany the permission/redistribution terms.
+        ids = license_ids(license_names)
+        permissive = any(i == "MIT" or i.startswith("BSD-") for i in ids)
+        current_legal_paths = [p for p in legal_dir.rglob("*") if p.is_file()]
+        full_permissive_notice = files_contain_full_permissive_notice(current_legal_paths)
+        if permissive and not full_permissive_notice and copyright_count == 0:
+            recovered = materialize_github_project_legal(
+                project_url,
+                scm_values,
+                component.version,
+                legal_dir / "project-repository",
+            )
+            if recovered:
+                project_legal.extend([f"project-repository/{path}" for path in recovered])
+                recovered_paths = [legal_dir / "project-repository" / path for path in recovered]
+                recovered_text = read_small_text_files([p for p in recovered_paths if p.name != "ORIGIN.txt"])
+                if "copyright" in recovered_text:
+                    copyright_count += 1
+
         legal_paths = [p for p in legal_dir.rglob("*") if p.is_file()]
+        full_permissive_notice = files_contain_full_permissive_notice(legal_paths)
         evidence_text = " ".join(license_names + license_urls) + "\n" + read_small_text_files(legal_paths)
         source_required = any(pattern in evidence_text.lower() for pattern in SOURCE_REQUIRED_PATTERNS)
 
@@ -742,10 +871,10 @@ def main() -> int:
         if source_required and not source_jar:
             errors.append(f"Source availability could not be materialized for source-requiring Maven component {component.coordinate}.")
 
-        ids = license_ids(license_names)
-        if any(i == "MIT" or i.startswith("BSD-") for i in ids) and not project_legal and copyright_count == 0:
+        if permissive and not full_permissive_notice and not (canonical and copyright_count > 0):
             errors.append(
-                f"No project-specific copyright notice was found for permissively licensed Maven component {component.coordinate}."
+                f"No complete project-specific MIT/BSD notice (or canonical license plus project copyright evidence) "
+                f"was found for permissively licensed Maven component {component.coordinate}."
             )
 
         if "SNAPSHOT" in component.version.upper():
@@ -816,6 +945,9 @@ def main() -> int:
         "collector preserves POM/manifest license identity and materializes the corresponding",
         "canonical SPDX license text. Project-specific LICENSE/NOTICE/COPYRIGHT files and source",
         "copyright evidence remain preserved separately and take precedence over that fallback.",
+        "If an MIT/BSD Maven module omits its repository-root license from its binary/source JARs,",
+        "the collector may recover that project-authored legal file only from the exact GitHub SCM",
+        "release tag declared by the component's POM chain; it never substitutes a default branch.",
         "",
         f"Maven runtime/shaded components collected: **{len(maven_components)}**  ",
         f"npm components collected: **{len(npm_components)}**  ",
