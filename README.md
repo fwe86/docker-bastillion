@@ -35,9 +35,12 @@ Before publishing, the workflow:
 2. verifies its SHA-256 digest against GitHub release metadata;
 3. downloads the exact upstream license, third-party inventory, Maven POM, and
    npm lock metadata from the matching release tag;
-4. independently resolves the runtime Maven dependency set;
-5. obtains available Maven source JARs and preserves component-specific legal
-   resources from both binary and source artifacts;
+4. independently resolves the runtime Maven dependency set and also materializes
+   Maven components whose coordinates survive only inside the shaded Bastillion JAR;
+5. obtains available Maven source JARs, preserves component-specific legal
+   resources from binary/source artifacts, resolves inherited POM license metadata,
+   and adds canonical SPDX license texts when upstream JARs omit the full standard
+   license text;
 6. installs the exact npm dependency set from `package-lock.json` without
    executing package scripts and preserves each package's legal files;
 7. preserves legal resources still present in the official shaded Bastillion
@@ -120,8 +123,11 @@ The complete generated compliance bundle is embedded in each image under:
 `/opt/bastillion/licenses/compliance/`
 
 It contains component-specific Maven and npm legal files, Maven source JARs
-where published, hashes, the dependency inventory, and the legal resources
-preserved from the official Bastillion JAR.
+where published, inherited POM/manifest license metadata, canonical SPDX full
+license texts used only as a fallback when project artifacts omit them, hashes,
+the dependency inventory, and the legal resources preserved from the official
+Bastillion JAR. Maven coordinates found only inside the shaded release JAR are
+materialized and checked as well.
 
 Base-image licensing information is retained separately under:
 

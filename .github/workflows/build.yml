@@ -233,6 +233,16 @@ jobs:
             -Dmdep.useRepositoryLayout=true \
             -DoutputDirectory="${GITHUB_WORKSPACE}/.build/maven-sources"
 
+      - name: Resolve Maven components discovered only inside the shaded JAR
+        if: steps.upstream.outputs.build == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/resolve_embedded_maven.py \
+            --jar .build/bastillion.jar \
+            --maven-list .build/maven-dependencies.txt \
+            --plugin-version "${MAVEN_DEPENDENCY_PLUGIN_VERSION}"
+
       - name: Materialize npm packages from the exact upstream lock file
         if: steps.upstream.outputs.build == 'true'
         shell: bash

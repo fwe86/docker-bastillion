@@ -2,9 +2,11 @@
 !Dockerfile
 !LICENSE
 !NOTICE.md
+!legal/
+!legal/BASE-IMAGE.md
 !.build/
 !.build/bastillion.jar
 !.build/LICENSE.md
 !.build/3rdPartyLicenses.md
-!.build/jar-notices/
-!.build/jar-notices/**
+!.build/compliance/
+!.build/compliance/**
