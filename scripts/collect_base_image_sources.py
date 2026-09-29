@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import urllib.parse
 from pathlib import Path
 
@@ -394,13 +395,49 @@ cd /
     ubuntu_dir.mkdir()
 
     verified_sources: set[tuple[str, str]] = set()
+    # Launchpad/archive downloads occasionally fail transiently (for example,
+    # launchpadlibrarian timeouts).  A transient transport failure must not make
+    # an otherwise compliant release impossible to publish, but we remain
+    # fail-closed: after bounded retries the workflow still aborts and no image
+    # is published.  Each retry starts from an empty component directory so a
+    # partial prior download can never be mistaken for verified source.
+    pull_attempts = 5
+    retry_delays = (5, 15, 30, 60)
+
     for source_pkg, version in sorted(source_tuples):
         component_dir = ubuntu_dir / safe_segment(source_pkg) / safe_segment(version)
-        component_dir.mkdir(parents=True)
-        run(
-            ["pull-lp-source", "-d", "--no-conf", source_pkg, version],
-            cwd=component_dir,
-        )
+        last_error: ComplianceError | None = None
+
+        for attempt in range(1, pull_attempts + 1):
+            if component_dir.exists():
+                shutil.rmtree(component_dir)
+            component_dir.mkdir(parents=True)
+
+            try:
+                run(
+                    ["pull-lp-source", "-d", "--no-conf", source_pkg, version],
+                    cwd=component_dir,
+                )
+                last_error = None
+                break
+            except ComplianceError as exc:
+                last_error = exc
+                if attempt >= pull_attempts:
+                    break
+                delay = retry_delays[attempt - 1]
+                print(
+                    f"WARNING: source download failed for {source_pkg} {version} "
+                    f"(attempt {attempt}/{pull_attempts}); retrying in {delay}s: {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                time.sleep(delay)
+
+        if last_error is not None:
+            raise ComplianceError(
+                f"Unable to download exact Ubuntu source package {source_pkg} {version} "
+                f"after {pull_attempts} attempts: {last_error}"
+            ) from last_error
 
         dsc_files = sorted(component_dir.glob("*.dsc"))
         if len(dsc_files) != 1:

@@ -25,7 +25,10 @@ been created, verified, and made available.
 
 For every installed Ubuntu/Debian binary package, the workflow records the
 binary package/version and the package's `source:Package` and `source:Version`
-metadata. It then downloads that exact Ubuntu source package from Launchpad.
+metadata. It then downloads that exact Ubuntu source package through Ubuntu's
+source retrieval tooling (archive mirrors with Launchpad fallback). Transient
+network failures are retried a bounded number of times from a clean per-package
+directory; persistent failures remain fail-closed and prevent image publication.
 The `.dsc` identity is checked and every file listed in its
 `Checksums-Sha256` section is verified before publication.
 

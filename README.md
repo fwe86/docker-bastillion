@@ -52,7 +52,8 @@ Before publishing, the workflow:
    JAR and verifies the generated third-party compliance bundle;
 8. inventories both architecture variants by their exact child-manifest
    digests, maps every installed binary package to its exact Ubuntu source
-   package and version, downloads those source packages, and verifies the `.dsc`
+   package and version, downloads those source packages with bounded clean-state
+   retries for transient archive/Launchpad failures, and verifies the `.dsc`
    `Checksums-Sha256` entries;
 9. downloads the exact Temurin/OpenJDK source archive corresponding to the
    runtime `JAVA_VERSION`, verifies Adoptium's published SHA-256, preserves the
