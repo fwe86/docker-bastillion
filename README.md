@@ -29,16 +29,31 @@ A new image is built when:
 
 Pre-releases are ignored.
 
-Before publishing:
+Before publishing, the workflow:
 
-1. the official Bastillion JAR is downloaded;
-2. its SHA-256 digest is verified against GitHub release metadata;
-3. the exact upstream license files are downloaded from the matching release tag;
-4. license and notice resources present in the official JAR are preserved separately in the image;
-5. the container is built and started;
-6. the running application is tested;
-7. the multi-platform image is published to GHCR;
-8. `.upstream` and the mirrored upstream license files are updated.
+1. downloads the official Bastillion JAR;
+2. verifies its SHA-256 digest against GitHub release metadata;
+3. downloads the exact upstream license, third-party inventory, Maven POM, and
+   npm lock metadata from the matching release tag;
+4. independently resolves the runtime Maven dependency set;
+5. obtains available Maven source JARs and preserves component-specific legal
+   resources from both binary and source artifacts;
+6. installs the exact npm dependency set from `package-lock.json` without
+   executing package scripts and preserves each package's legal files;
+7. preserves legal resources still present in the official shaded Bastillion
+   JAR;
+8. generates and SHA-256-verifies an independent compliance bundle;
+9. builds and starts a verification image and checks that the legal material is
+   present inside it;
+10. starts Bastillion and verifies that the application responds;
+11. publishes the multi-platform image with OCI SBOM and provenance
+    attestations;
+12. updates `.upstream` and the repository's upstream license/compliance
+    snapshots.
+
+The build is fail-closed for the compliance checks performed by the collector:
+a missing component legal text/notice or an identified source-availability gap
+prevents publication.
 
 ## Persistence
 
@@ -78,32 +93,46 @@ services:
     restart: unless-stopped
 ```
 
-## Licensing
+## Licensing and compliance
 
 The MIT license in `LICENSE` applies only to the original Docker packaging,
-GitHub Actions automation, and documentation authored in this repository.
+GitHub Actions automation, helper scripts, and documentation authored in this
+repository.
 
 Bastillion itself is not MIT-licensed. The Docker images redistribute the
 official Bastillion release artifact unchanged. Bastillion is distributed
 under the Prosperity Public License 3.0.0 by Loophole, LLC.
 
-The exact license files belonging to the Bastillion version most recently
+The exact upstream files belonging to the Bastillion version most recently
 published by this repository are mirrored as:
 
 - `UPSTREAM-LICENSE.md`
 - `UPSTREAM-THIRD-PARTY-LICENSES.md`
 
-The same upstream files are included in each image under:
+After a successful compliant build, the independently generated current-version
+summary and component inventory are mirrored as:
 
-`/opt/bastillion/licenses/upstream/`
+- `UPSTREAM-COMPLIANCE.md`
+- `UPSTREAM-COMPONENTS.tsv`
 
-License and notice resources present inside the official Bastillion JAR are
-also exposed under:
+The complete generated compliance bundle is embedded in each image under:
 
-`/opt/bastillion/licenses/jar-notices/`
+`/opt/bastillion/licenses/compliance/`
+
+It contains component-specific Maven and npm legal files, Maven source JARs
+where published, hashes, the dependency inventory, and the legal resources
+preserved from the official Bastillion JAR.
+
+Base-image licensing information is retained separately under:
+
+`/opt/bastillion/licenses/base-image/`
+
+OpenJDK's original legal material remains available at:
+
+`/opt/java/openjdk/legal/`
 
 See `NOTICE.md` for the licensing boundary between this repository's original
-work, Bastillion, the Java runtime image, and other third-party software.
+work, Bastillion, its bundled dependencies, and the runtime base image.
 
 This project is not affiliated with or endorsed by the Bastillion project or
 Loophole, LLC.
