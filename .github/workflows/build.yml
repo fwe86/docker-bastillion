@@ -16,6 +16,7 @@ on:
       - "BASE-IMAGE-SOURCE.md"
       - "BASE-IMAGE-PACKAGES-amd64.tsv"
       - "BASE-IMAGE-PACKAGES-arm64.tsv"
+      - "BASE-IMAGE-PLATFORMS.tsv"
       - "BASE-IMAGE-SOURCE-PACKAGES.tsv"
 
   workflow_dispatch:
@@ -77,13 +78,26 @@ jobs:
             fi
           done
 
+          amd64_digest="$(jq -r '[.manifests[]? | select(.platform.os == "linux" and .platform.architecture == "amd64")][0].digest // empty' .build/base-image-manifest.json)"
+          arm64_digest="$(jq -r '[.manifests[]? | select(.platform.os == "linux" and .platform.architecture == "arm64")][0].digest // empty' .build/base-image-manifest.json)"
+          for platform_digest in "${amd64_digest}" "${arm64_digest}"; do
+            if [[ ! "${platform_digest}" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "ERROR: Invalid platform-specific base-image digest: ${platform_digest:-missing}" >&2
+              exit 1
+            fi
+          done
+
           ref="${BASE_IMAGE_NAME}@${digest}"
           {
             echo "digest=${digest}"
             echo "ref=${ref}"
+            echo "amd64_digest=${amd64_digest}"
+            echo "arm64_digest=${arm64_digest}"
           } >> "${GITHUB_OUTPUT}"
 
-          echo "Pinned base image: ${ref}"
+          echo "Pinned base image index: ${ref}"
+          echo "Pinned linux/amd64 manifest: ${BASE_IMAGE_NAME}@${amd64_digest}"
+          echo "Pinned linux/arm64 manifest: ${BASE_IMAGE_NAME}@${arm64_digest}"
 
       - name: Determine latest stable Bastillion release
         id: upstream
@@ -353,6 +367,7 @@ jobs:
           test -s .build/base-source/SHA256SUMS
           test -s .build/base-source/inventory/DPKG-PACKAGES-amd64.tsv
           test -s .build/base-source/inventory/DPKG-PACKAGES-arm64.tsv
+          test -s .build/base-source/inventory/PLATFORM-MANIFESTS.tsv
 
           (
             cd .build/base-source
@@ -453,7 +468,9 @@ jobs:
           cat > "${notes_file}" <<EOF
           Corresponding source for the runtime base of docker-bastillion ${{ steps.upstream.outputs.version }}.
 
-          Base image: ${BASE_IMAGE_NAME}@${{ steps.base.outputs.digest }}
+          Base image index: ${BASE_IMAGE_NAME}@${{ steps.base.outputs.digest }}
+          linux/amd64 manifest: ${BASE_IMAGE_NAME}@${{ steps.base.outputs.amd64_digest }}
+          linux/arm64 manifest: ${BASE_IMAGE_NAME}@${{ steps.base.outputs.arm64_digest }}
           Source archive SHA-256: ${archive_sha256}
           OCI source artifact: ${source_oci_digest_ref}
 
@@ -506,6 +523,11 @@ jobs:
           The published image was built from the immutable base image:
 
           ${BASE_IMAGE_NAME}@${{ steps.base.outputs.digest }}
+
+          The exact platform manifests inspected for package/source mapping were:
+
+          - linux/amd64: ${BASE_IMAGE_NAME}@${{ steps.base.outputs.amd64_digest }}
+          - linux/arm64: ${BASE_IMAGE_NAME}@${{ steps.base.outputs.arm64_digest }}
 
           Complete corresponding source material collected for the Ubuntu packages
           present in both published architectures and for the Eclipse Temurin/OpenJDK
@@ -722,6 +744,8 @@ jobs:
             echo "SOURCE_RELEASE=${{ steps.upstream.outputs.release_url }}"
             echo "BASE_IMAGE_NAME=${BASE_IMAGE_NAME}"
             echo "BASE_IMAGE_DIGEST=${{ steps.base.outputs.digest }}"
+            echo "BASE_IMAGE_AMD64_DIGEST=${{ steps.base.outputs.amd64_digest }}"
+            echo "BASE_IMAGE_ARM64_DIGEST=${{ steps.base.outputs.arm64_digest }}"
             echo "BASE_SOURCE_OCI_REF=${{ steps.base_source.outputs.oci_digest_ref }}"
             echo "BASE_SOURCE_OCI_DIGEST=${{ steps.base_source.outputs.oci_digest }}"
             echo "BASE_SOURCE_RELEASE_URL=${{ steps.base_source.outputs.release_url }}"
@@ -735,6 +759,7 @@ jobs:
           cp .build/base-source-pointer.md BASE-IMAGE-SOURCE.md
           cp .build/base-source/inventory/DPKG-PACKAGES-amd64.tsv BASE-IMAGE-PACKAGES-amd64.tsv
           cp .build/base-source/inventory/DPKG-PACKAGES-arm64.tsv BASE-IMAGE-PACKAGES-arm64.tsv
+          cp .build/base-source/inventory/PLATFORM-MANIFESTS.tsv BASE-IMAGE-PLATFORMS.tsv
           cp .build/base-source/SOURCE-PACKAGES.tsv BASE-IMAGE-SOURCE-PACKAGES.tsv
 
           if [[ -z "$(
@@ -747,6 +772,7 @@ jobs:
               BASE-IMAGE-SOURCE.md \
               BASE-IMAGE-PACKAGES-amd64.tsv \
               BASE-IMAGE-PACKAGES-arm64.tsv \
+              BASE-IMAGE-PLATFORMS.tsv \
               BASE-IMAGE-SOURCE-PACKAGES.tsv
           )" ]]; then
             exit 0
@@ -764,6 +790,7 @@ jobs:
             BASE-IMAGE-SOURCE.md \
             BASE-IMAGE-PACKAGES-amd64.tsv \
             BASE-IMAGE-PACKAGES-arm64.tsv \
+            BASE-IMAGE-PLATFORMS.tsv \
             BASE-IMAGE-SOURCE-PACKAGES.tsv
 
           git commit -m "chore: update Bastillion upstream compliance to ${{ steps.upstream.outputs.version }} [skip ci]"

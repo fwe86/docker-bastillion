@@ -33,8 +33,9 @@ Pre-releases are ignored.
 
 Before publishing, the workflow:
 
-1. resolves the Temurin base tag to an immutable manifest digest and requires
-   exactly one `linux/amd64` and one `linux/arm64` platform image;
+1. resolves the Temurin base tag to an immutable multi-platform image-index
+   digest, requires exactly one `linux/amd64` and one `linux/arm64` platform
+   image, and records each platform's immutable child-manifest digest;
 2. downloads the official Bastillion JAR and verifies its SHA-256 against the
    GitHub release metadata;
 3. downloads the exact upstream license, third-party inventory, Maven POM, and
@@ -49,9 +50,9 @@ Before publishing, the workflow:
    executing package scripts and preserves each package's legal files;
 7. preserves legal resources still present in the official shaded Bastillion
    JAR and verifies the generated third-party compliance bundle;
-8. inventories both architecture variants of the pinned Temurin/Ubuntu base,
-   maps every installed binary package to its exact Ubuntu source package and
-   version, downloads those source packages, and verifies the `.dsc`
+8. inventories both architecture variants by their exact child-manifest
+   digests, maps every installed binary package to its exact Ubuntu source
+   package and version, downloads those source packages, and verifies the `.dsc`
    `Checksums-Sha256` entries;
 9. downloads the exact Temurin/OpenJDK source archive corresponding to the
    runtime `JAVA_VERSION`, verifies Adoptium's published SHA-256, preserves the
@@ -147,8 +148,9 @@ shaded release JAR are materialized and checked as well.
 ### Runtime base corresponding source
 
 Published builds no longer rely on the mutable Temurin tag as the build input.
-The workflow resolves `eclipse-temurin:21-jre-noble` to an immutable digest and
-uses that pinned reference for both architectures.
+The workflow resolves `eclipse-temurin:21-jre-noble` to an immutable
+multi-platform image-index digest for BuildKit and separately records the exact
+child-manifest digest used for `linux/amd64` and `linux/arm64` inspection.
 
 Before the image is published, exact corresponding source for the pinned base
 is collected and made available through both GHCR and a GitHub Release. The
@@ -165,6 +167,7 @@ the union of source package/version tuples as:
 
 - `BASE-IMAGE-PACKAGES-amd64.tsv`
 - `BASE-IMAGE-PACKAGES-arm64.tsv`
+- `BASE-IMAGE-PLATFORMS.tsv`
 - `BASE-IMAGE-SOURCE-PACKAGES.tsv`
 
 The source archive itself contains the exact Ubuntu source packages for the

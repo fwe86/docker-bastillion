@@ -22,7 +22,6 @@ Bouncy Castle : Bouncy Castle License - The Legion of the Bouncy Castle Inc.
 Google-Gson : Apache License, Version 2.0 - Google, Inc.
 
 H2 : Mozilla Public License, Version 2.0 - H2 Group
-
 Jetty : Apache License, Version 2.0 - The Eclipse Foundation
 
 JSch (mwiede) : BSD License - Atsuhiko Yamanaka - JCraft,Inc, Matthias Wiedemann, Jeremy Norris
@@ -40,5 +39,4 @@ SLF4J : MIT License - QOS.ch
 Thymeleaf: Apache License, Version 2.0 -  The THYMELEAF team
 
 xterm.js : MIT License - The xterm.js Authors
-
 ZXing : Apache License, Version 2.0 -  ZXing Authors

@@ -128,6 +128,49 @@ def main() -> int:
         "arm64": "linux/arm64",
     }
 
+    # A multi-platform digest identifies the OCI/Docker image index, not one
+    # concrete platform image. Docker Engine may cache the first platform under
+    # that index digest and then refuse to overwrite the same digest when a
+    # second platform is requested. Resolve and run each platform by its own
+    # immutable child-manifest digest instead. The index digest remains the
+    # canonical base-image identity used by BuildKit for the multi-platform build.
+    try:
+        manifest_doc = json.loads(args.manifest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ComplianceError(f"Unable to parse base-image manifest JSON: {exc}") from exc
+
+    manifest_digest = str(manifest_doc.get("digest", ""))
+    if manifest_digest != args.base_image_digest:
+        raise ComplianceError(
+            f"Base-image manifest digest mismatch: expected {args.base_image_digest}, "
+            f"got {manifest_digest or 'missing'}"
+        )
+
+    descriptors = manifest_doc.get("manifests")
+    if not isinstance(descriptors, list):
+        raise ComplianceError("Base-image manifest does not contain a manifests array")
+
+    platform_refs: dict[str, str] = {}
+    platform_digests: dict[str, str] = {}
+    for arch, platform in platforms.items():
+        os_name, arch_name = platform.split("/", 1)
+        matches = [
+            item for item in descriptors
+            if isinstance(item, dict)
+            and isinstance(item.get("platform"), dict)
+            and item["platform"].get("os") == os_name
+            and item["platform"].get("architecture") == arch_name
+        ]
+        if len(matches) != 1:
+            raise ComplianceError(
+                f"Expected exactly one manifest descriptor for {platform}, found {len(matches)}"
+            )
+        digest = str(matches[0].get("digest", ""))
+        if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+            raise ComplianceError(f"Invalid child-manifest digest for {platform}: {digest!r}")
+        platform_digests[arch] = digest
+        platform_refs[arch] = f"{args.base_image_name}@{digest}"
+
     source_tuples: set[tuple[str, str]] = set()
     java_versions: set[str] = set()
 
@@ -138,13 +181,22 @@ def main() -> int:
     legal_dir.mkdir()
     adoptium_dir.mkdir()
 
+    with (inventory_dir / "PLATFORM-MANIFESTS.tsv").open("w", encoding="utf-8", newline="") as f:
+        f.write("architecture\tplatform\tindex_digest\tplatform_digest\tpinned_reference\n")
+        for arch, platform in platforms.items():
+            f.write(
+                f"{arch}\t{platform}\t{args.base_image_digest}\t"
+                f"{platform_digests[arch]}\t{platform_refs[arch]}\n"
+            )
+
     query = (
         "dpkg-query -W -f='${binary:Package}\\t${Package}\\t${Version}\\t"
         "${source:Package}\\t${source:Version}\\n'"
     )
 
     for arch, platform in platforms.items():
-        raw_inventory = docker_text(args.base_image_ref, platform, query)
+        platform_ref = platform_refs[arch]
+        raw_inventory = docker_text(platform_ref, platform, query)
         rows: list[tuple[str, str, str, str, str]] = []
         for line in raw_inventory.splitlines():
             fields = line.split("\t")
@@ -165,21 +217,21 @@ def main() -> int:
             for row in rows:
                 f.write("\t".join(row) + "\n")
 
-        java_version = docker_text(args.base_image_ref, platform, "printf '%s\\n' \"${JAVA_VERSION:?JAVA_VERSION is not set}\"").strip()
+        java_version = docker_text(platform_ref, platform, "printf '%s\\n' \"${JAVA_VERSION:?JAVA_VERSION is not set}\"").strip()
         if not re.fullmatch(r"jdk-[0-9][0-9A-Za-z.+_-]*", java_version):
             raise ComplianceError(f"Unexpected JAVA_VERSION for {arch}: {java_version!r}")
         java_versions.add(java_version)
         (inventory_dir / f"JAVA-VERSION-{arch}.txt").write_text(java_version + "\n", encoding="utf-8")
 
         release_text = docker_text(
-            args.base_image_ref,
+            platform_ref,
             platform,
             "cat /opt/java/openjdk/release",
         )
         (inventory_dir / f"OPENJDK-RELEASE-{arch}.txt").write_text(release_text, encoding="utf-8")
 
         legal_hashes = docker_text(
-            args.base_image_ref,
+            platform_ref,
             platform,
             r'''set -eu
 cd /
@@ -193,7 +245,7 @@ cd /
             raise ComplianceError(f"No base-image legal files discovered for {arch}")
         (legal_dir / f"LEGAL-FILES-SHA256-{arch}.txt").write_text(legal_hashes, encoding="utf-8")
 
-        entrypoint = docker_text(args.base_image_ref, platform, "cat /__cacert_entrypoint.sh")
+        entrypoint = docker_text(platform_ref, platform, "cat /__cacert_entrypoint.sh")
         if "Apache License, Version 2.0" not in entrypoint:
             raise ComplianceError(f"Adoptium entrypoint for {arch} lacks expected Apache-2.0 notice")
         (adoptium_dir / f"__cacert_entrypoint-{arch}.sh").write_text(entrypoint, encoding="utf-8")
@@ -381,8 +433,11 @@ cd /
 
 Base image: `{args.base_image_name}`
 Pinned manifest digest: `{args.base_image_digest}`
-Pinned reference: `{args.base_image_ref}`
+Pinned multi-platform reference: `{args.base_image_ref}`
 Target platforms: `linux/amd64`, `linux/arm64`
+Platform-specific immutable manifest references are recorded in
+`inventory/PLATFORM-MANIFESTS.tsv` and are used for all per-architecture
+inspection commands.
 Temurin runtime version: `{java_version}`
 Ubuntu source package tuples materialized: {len(source_tuples)}
 

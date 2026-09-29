@@ -1,10 +1,14 @@
 # Runtime base image licensing and corresponding source
 
 Published images are derived from the official `eclipse-temurin:21-jre-noble`
-image. The build resolves that moving tag to an immutable multi-platform manifest
-digest before any image is built and then uses only the digest-pinned reference.
-The resolved digest is recorded in `.upstream`, in OCI image labels, and in the
-license material embedded in the image.
+image. The build resolves that moving tag to an immutable multi-platform image
+index digest before any image is built and then uses only the digest-pinned index
+reference for BuildKit. For per-architecture inspection, the workflow separately
+resolves and uses the immutable child-manifest digest for `linux/amd64` and
+`linux/arm64`; this avoids relying on mutable tag resolution and avoids treating a
+multi-platform index digest as though it were a single-platform manifest. The
+index digest and both child-manifest digests are recorded in `.upstream` and in
+the generated source/compliance evidence.
 
 Eclipse Temurin documents that the OpenJDK runtime is licensed under GPL-2.0
 with the Classpath Exception, while the Temurin container Dockerfiles and
@@ -71,8 +75,9 @@ present in the pinned base image. In particular:
   contains the Apache-2.0 license for the Temurin container scripts.
 
 The generated source archive contains additional per-architecture inventories,
-hashes of legal files retained by the base image, the exact Ubuntu source
-packages, and the verified Temurin/OpenJDK source archive.
+`inventory/PLATFORM-MANIFESTS.tsv` tying each architecture to its exact immutable
+child-manifest digest, hashes of legal files retained by the base image, the exact
+Ubuntu source packages, and the verified Temurin/OpenJDK source archive.
 
 Each component remains governed by its own upstream license. Nothing in this
 repository relicenses base-image software.
