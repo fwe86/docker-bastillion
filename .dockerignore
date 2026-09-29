@@ -4,9 +4,11 @@
 !NOTICE.md
 !legal/
 !legal/BASE-IMAGE.md
+!legal/ADOPTIUM-CONTAINERS-LICENSE-APACHE-2.0.txt
 !.build/
 !.build/bastillion.jar
 !.build/LICENSE.md
 !.build/3rdPartyLicenses.md
+!.build/base-source-pointer.md
 !.build/compliance/
 !.build/compliance/**

@@ -16,7 +16,7 @@ The exact upstream license belonging to the Bastillion release most recently
 published by this repository is mirrored in `UPSTREAM-LICENSE.md`.
 
 Upstream source code:
-https://github.com/bastillion-io/Bastillion
+https://github.com/Loophole-LLC/Bastillion
 
 Packaging Bastillion into this container does not modify, replace, or bypass
 Bastillion's own license terms, commercial licensing requirements, or
@@ -29,57 +29,61 @@ their own licenses. The upstream project's own third-party inventory is mirrored
 in `UPSTREAM-THIRD-PARTY-LICENSES.md`, but this repository does **not** rely on
 that file as the sole compliance record.
 
-For every published image, the build independently:
-
-1. resolves the runtime Maven dependency set from the exact upstream release
-   tag;
-2. materializes published Maven source JARs where available;
-3. installs the exact npm package versions from the upstream lock file without
-   running package scripts;
-4. preserves component-specific LICENSE, LICENCE, NOTICE, COPYING, COPYRIGHT,
-   DEPENDENCIES, and ABOUT resources from the original dependency artifacts;
-5. preserves the legal resources that survived inside Loophole's official
-   shaded Bastillion JAR;
-6. records the dependency versions, declared licenses, artifact hashes, source
-   locations, and source-materialization status;
-7. fails the build if a Maven/npm component has no full legal text/notice
-   material, or if a source-requiring Maven component is detected but no source
-   artifact can be materialized;
-8. verifies SHA-256 hashes for the complete generated compliance bundle before
-   publication.
+For every published image, the build independently resolves and verifies the
+runtime Maven/npm component set, preserves component-specific legal material,
+materializes available source artifacts where required, recovers exact-tag
+project notices where necessary, preserves legal resources surviving inside the
+upstream shaded JAR, and SHA-256-verifies the resulting compliance bundle. The
+build fails if its legal/source checks cannot be satisfied.
 
 The complete bundle is included in every container under:
 
 `/opt/bastillion/licenses/compliance/`
 
-For compatibility and easy inspection, the legal resources found in the
-official Bastillion JAR are also exposed under:
+For compatibility and inspection, legal resources found in the official
+Bastillion JAR are also exposed under:
 
 `/opt/bastillion/licenses/jar-notices/`
 
-The generated summary and component inventory for the most recently published
-version are mirrored back to the repository as `UPSTREAM-COMPLIANCE.md` and
-`UPSTREAM-COMPONENTS.tsv` after a successful build.
-
 The official Bastillion JAR itself remains unchanged.
 
-## Runtime base image
+## Runtime base image and corresponding source
 
-The image is based on the official Eclipse Temurin Java 21 JRE image using the
-Ubuntu Noble variant. Software contained in that base image remains subject to
-its own license terms.
+The runtime base is the official Eclipse Temurin Java 21 JRE Ubuntu Noble image.
+The moving tag `eclipse-temurin:21-jre-noble` is resolved at build time to an
+immutable multi-platform manifest digest, and the derived image is built only
+from that pinned reference.
 
-The derived image retains the base image's OpenJDK legal directory and Ubuntu
-package documentation. It also records the installed package versions and Java
-runtime version under:
+Software contained in the base image remains subject to its own license terms.
+The derived image retains OpenJDK legal material and Ubuntu package copyright
+material. It also includes the Apache-2.0 license applicable to the Temurin
+container Dockerfiles/scripts.
 
-`/opt/bastillion/licenses/base-image/`
+Before a derived container image is published, the workflow materializes and
+verifies corresponding source for the exact pinned base across both published
+architectures. This includes:
 
-Additional base-image licensing and source-location information is provided in
-`legal/BASE-IMAGE.md` and is copied into the image.
+- every exact Ubuntu source package/version corresponding to installed binary
+  packages, with the `.dsc` source identity and `Checksums-Sha256` files
+  verified;
+- the exact Temurin/OpenJDK source archive corresponding to `JAVA_VERSION`,
+  verified against Adoptium's published SHA-256;
+- Adoptium's release metadata/build arguments and archives of the exact
+  `temurin-build` commit(s) referenced by that metadata;
+- source/evidence for the Temurin container entrypoint script.
+
+The resulting base-source archive is published without charge **before** the
+container image both as an immutable OCI artifact in GHCR and as a GitHub
+Release asset. The release asset digest is verified, and the source archive
+SHA-256 plus immutable retrieval references are embedded in every image under:
+
+`/opt/bastillion/licenses/base-image/CORRESPONDING-SOURCE.md`
+
+The same source pointer and package/source inventories are mirrored into this
+repository after a successful build. See `legal/BASE-IMAGE.md` for details.
 
 ## SBOM and provenance
 
 Published multi-platform images are built with OCI SBOM and provenance
-attestations enabled. These attestations supplement the license bundle; they do
-not replace license texts, notices, or source-code obligations.
+attestations enabled. These attestations supplement the license and source
+bundles; they do not replace license texts, notices, or source-code obligations.

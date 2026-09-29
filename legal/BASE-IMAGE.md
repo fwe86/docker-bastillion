@@ -1,36 +1,78 @@
-# Runtime base image licensing
+# Runtime base image licensing and corresponding source
 
-This image is derived from the official `eclipse-temurin:21-jre-noble` image.
+Published images are derived from the official `eclipse-temurin:21-jre-noble`
+image. The build resolves that moving tag to an immutable multi-platform manifest
+digest before any image is built and then uses only the digest-pinned reference.
+The resolved digest is recorded in `.upstream`, in OCI image labels, and in the
+license material embedded in the image.
 
-The Eclipse Temurin Docker image documentation states that its Dockerfiles and
-associated scripts are Apache-2.0 licensed and that the OpenJDK runtime in the
-image is licensed under GPL-2.0 with the Classpath Exception. The Ubuntu base
-and other installed packages remain under their respective licenses.
+Eclipse Temurin documents that the OpenJDK runtime is licensed under GPL-2.0
+with the Classpath Exception, while the Temurin container Dockerfiles and
+associated scripts are Apache-2.0 licensed. Ubuntu packages in the base image
+remain subject to their respective licenses.
 
-The derived image intentionally keeps the legal material already present in the
-base image. In particular:
+## Exact corresponding-source publication
+
+Before a docker-bastillion image is published, the workflow independently
+materializes corresponding source for the exact pinned runtime base for both
+published architectures (`linux/amd64` and `linux/arm64`). Publication is
+fail-closed: the container image is not published unless this source bundle has
+been created, verified, and made available.
+
+For every installed Ubuntu/Debian binary package, the workflow records the
+binary package/version and the package's `source:Package` and `source:Version`
+metadata. It then downloads that exact Ubuntu source package from Launchpad.
+The `.dsc` identity is checked and every file listed in its
+`Checksums-Sha256` section is verified before publication.
+
+For the Temurin/OpenJDK runtime, the workflow reads the exact `JAVA_VERSION`
+from both platform variants, requires the versions to match, downloads the
+corresponding official Adoptium OpenJDK source archive, and verifies it against
+Adoptium's published SHA-256. Adoptium's checksum, signature, and release metadata are kept with the
+archive. The release metadata identifies the exact `temurin-build` commit and
+build arguments used for the release; the workflow also archives every exact
+`temurin-build` commit referenced by the source/JRE metadata. This preserves the
+build-script source used to control compilation and packaging. The base image's
+`__cacert_entrypoint.sh` source is also preserved as evidence of the
+Apache-2.0-licensed container script, and the full Apache-2.0 license is included
+in the derived image.
+
+The verified base-source bundle is published **before** the derived image in two
+independent locations:
+
+1. as an OCI artifact in the same GHCR package, addressable by immutable digest;
+2. as a GitHub Release asset with its SHA-256 verified against GitHub's release
+   asset metadata.
+
+Every published image embeds `/opt/bastillion/licenses/base-image/CORRESPONDING-SOURCE.md`
+and `/opt/bastillion/licenses/base-image/SOURCE-LOCATION.env`, which identify
+the immutable base-image digest, the immutable OCI source-artifact digest, the
+GitHub Release source URL, and the source archive SHA-256. The same pointer is
+mirrored to `BASE-IMAGE-SOURCE.md` after a successful build.
+
+This supplies actual corresponding source rather than relying on a written
+offer or only on mutable upstream links.
+
+## Legal material retained in the image
+
+The derived image also intentionally preserves the legal material already
+present in the pinned base image. In particular:
 
 - OpenJDK legal notices remain under `/opt/java/openjdk/legal/`;
 - Ubuntu/package copyright material remains under `/usr/share/doc/` where
   supplied by the base image;
-- `/opt/bastillion/licenses/base-image/DPKG-PACKAGES.tsv` records the exact
-  Debian/Ubuntu package versions present when this image is built;
+- `/opt/bastillion/licenses/base-image/DPKG-PACKAGES.tsv` records installed
+  binary versions and their source package/version mapping;
 - `/opt/bastillion/licenses/base-image/JAVA-VERSION.txt` records the runtime
   version;
 - `/opt/bastillion/licenses/base-image/UBUNTU-COPYRIGHT-FILES.txt` inventories
-  package copyright files present in the image.
+  package copyright files present in the image;
+- `/opt/bastillion/licenses/base-image/ADOPTIUM-CONTAINERS-LICENSE-APACHE-2.0.txt`
+  contains the Apache-2.0 license for the Temurin container scripts.
 
-OpenJDK/Temurin source and build provenance are published by Eclipse Adoptium,
-including the OpenJDK 21 update source mirror and Temurin 21 binary release
-metadata:
+The generated source archive contains additional per-architecture inventories,
+hashes of legal files retained by the base image, the exact Ubuntu source
+packages, and the verified Temurin/OpenJDK source archive.
 
-- https://github.com/adoptium/jdk21u
-- https://github.com/adoptium/temurin21-binaries
-- https://github.com/adoptium/containers
-
-Ubuntu source packages are published by Ubuntu/Canonical through the Ubuntu
-archive infrastructure. The exact installed binary package versions are listed
-in `DPKG-PACKAGES.tsv` so the corresponding source package can be identified.
-
-This file is informational. It does not replace any license, copyright, notice,
-or source-code obligation applicable to a component in the base image.
+Each component remains governed by its own upstream license. Nothing in this
+repository relicenses base-image software.
