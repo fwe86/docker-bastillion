@@ -1,9 +1,9 @@
 # Bastillion redistribution compliance bundle
 
 Upstream repository: `Loophole-LLC/Bastillion`  
-Upstream tag: `v5.2.1`  
-Upstream version: `5.2.1`  
-Upstream JAR SHA-256: `c2a4062b07bd83f124930fae7024c923d0ec045738fa0b5c5d3c472536582e12`
+Upstream tag: `v6.0.0`  
+Upstream version: `6.0.0`  
+Upstream JAR SHA-256: `dc0af1601867bd50e3add126f7ec54bc6cc4671022687c379cbc54151493831c`
 
 This bundle supplements, and does not replace, the upstream Bastillion license.
 It preserves legal notices from the official shaded JAR and independently collects
