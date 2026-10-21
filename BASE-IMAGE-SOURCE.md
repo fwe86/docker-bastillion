@@ -13,8 +13,8 @@ Complete corresponding source material collected for the Ubuntu packages
 present in both published architectures and for the Eclipse Temurin/OpenJDK
 runtime is available without charge through both of these locations:
 
-- OCI/GHCR artifact: ghcr.io/fwe86/docker-bastillion@sha256:44988e7428b0a8c15bb5fd807004ccc6ce89b9c8b8a3e2e2e0da1a1bc742a0e4
-- GitHub Release asset: https://github.com/fwe86/docker-bastillion/releases/download/source-6.0.0-6f72aa50f244-35501d3f9317/docker-bastillion-6.0.0-base-sources-6f72aa50f244-35501d3f9317.tar.gz
+- OCI/GHCR artifact: ghcr.io/fwe86/docker-bastillion@sha256:baf0725d0eeba09765d9eef65cf76a614b4d038893dc0b09f852135e14af1f72
+- GitHub Release asset: https://github.com/fwe86/docker-bastillion/releases/download/source-6.0.1-e565920ab1fb-35501d3f9317/docker-bastillion-6.0.1-base-sources-e565920ab1fb-35501d3f9317.tar.gz
 
 Source archive SHA-256:
 
@@ -22,7 +22,7 @@ abe2ae085ee47386843b4aed41090c5f8612e20f5840c29b9010fdd8638b7507
 
 To retrieve the immutable OCI artifact by digest:
 
-oras pull ghcr.io/fwe86/docker-bastillion@sha256:44988e7428b0a8c15bb5fd807004ccc6ce89b9c8b8a3e2e2e0da1a1bc742a0e4
+oras pull ghcr.io/fwe86/docker-bastillion@sha256:baf0725d0eeba09765d9eef65cf76a614b4d038893dc0b09f852135e14af1f72
 
 The source bundle contains exact binary-to-source package inventories for
 linux/amd64 and linux/arm64, the exact Ubuntu source package versions with
