@@ -2,27 +2,27 @@
 
 The published image was built from the immutable base image:
 
-eclipse-temurin:21-jre-noble@sha256:35501d3f93173b420ac9001658eb68157e813316b865087e345c187fca422c4c
+eclipse-temurin:21-jre-noble@sha256:cd35bb33859641c5374415826a5951845104093eaa401cbe9d3d9023444f1c13
 
 The exact platform manifests inspected for package/source mapping were:
 
-- linux/amd64: eclipse-temurin:21-jre-noble@sha256:da0f0d242bec39e3fe5c1ac4c415840f03be9cef848c243d723166708e02148c
-- linux/arm64: eclipse-temurin:21-jre-noble@sha256:4836d60bd7014ecd293d1acc514afba9dc2c8dc63c3dcd8a0bf3d0ff127d198b
+- linux/amd64: eclipse-temurin:21-jre-noble@sha256:de07a7c89a9430922ee1db1e2f848d75533c7f8f2ab3e4ba5eb52cc4550cdb2a
+- linux/arm64: eclipse-temurin:21-jre-noble@sha256:b9322f6071aff3ed7aa0c7fdb3f57d2b56da6ddeaa138fcaa81234f2803141b7
 
 Complete corresponding source material collected for the Ubuntu packages
 present in both published architectures and for the Eclipse Temurin/OpenJDK
 runtime is available without charge through both of these locations:
 
-- OCI/GHCR artifact: ghcr.io/fwe86/docker-bastillion@sha256:fe8212befed78f2ad90fbb44ac23075b6410a7b70aa8f2b5997873debd06fcdd
-- GitHub Release asset: https://github.com/fwe86/docker-bastillion/releases/download/source-6.0.3-52c050a6a791-35501d3f9317/docker-bastillion-6.0.3-base-sources-52c050a6a791-35501d3f9317.tar.gz
+- OCI/GHCR artifact: ghcr.io/fwe86/docker-bastillion@sha256:3015bf6e92976253acf8530fecb412b0971cdfb3dce975ddd52ea380e6ce812a
+- GitHub Release asset: https://github.com/fwe86/docker-bastillion/releases/download/source-6.0.3-61992e0a9822-cd35bb338596/docker-bastillion-6.0.3-base-sources-61992e0a9822-cd35bb338596.tar.gz
 
 Source archive SHA-256:
 
-abe2ae085ee47386843b4aed41090c5f8612e20f5840c29b9010fdd8638b7507
+1820334d7b1c6b0ab4f49ae63b81f740de7e8dfff35cc4161ae7f7b18bcb7771
 
 To retrieve the immutable OCI artifact by digest:
 
-oras pull ghcr.io/fwe86/docker-bastillion@sha256:fe8212befed78f2ad90fbb44ac23075b6410a7b70aa8f2b5997873debd06fcdd
+oras pull ghcr.io/fwe86/docker-bastillion@sha256:3015bf6e92976253acf8530fecb412b0971cdfb3dce975ddd52ea380e6ce812a
 
 The source bundle contains exact binary-to-source package inventories for
 linux/amd64 and linux/arm64, the exact Ubuntu source package versions with
