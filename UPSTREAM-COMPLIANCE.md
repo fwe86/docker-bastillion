@@ -1,9 +1,9 @@
 # Bastillion redistribution compliance bundle
 
 Upstream repository: `Loophole-LLC/Bastillion`  
-Upstream tag: `v6.0.3`  
-Upstream version: `6.0.3`  
-Upstream JAR SHA-256: `6e91807fc352d7b2e46f7a7101ef99f67121fecc69feec02e558b24f2936931f`
+Upstream tag: `v6.0.4`  
+Upstream version: `6.0.4`  
+Upstream JAR SHA-256: `0e89b0dd8cc94e81d3c4cf21054dc03f5f5dd9763d196939177850e86bdbc34b`
 
 This bundle supplements, and does not replace, the upstream Bastillion license.
 It preserves legal notices from the official shaded JAR and independently collects
@@ -20,7 +20,7 @@ release tag declared by the component's POM chain; it never substitutes a defaul
 
 Maven runtime/shaded components collected: **72**  
 npm components collected: **7**  
-Legal resources surviving inside the upstream shaded JAR: **14**
+Legal resources surviving inside the upstream shaded JAR: **16**
 
 ## Source availability
 
@@ -43,8 +43,7 @@ published shaded JAR was built; such cases are explicitly reported as warnings.
 
 ## Warnings
 
-- org.apache.commons:commons-fileupload2-core:jar:2.0.0-SNAPSHOT is a SNAPSHOT dependency. Its generic Maven version does not identify the timestamped build used when Loophole created the already-shaded release JAR. The official Bastillion release JAR SHA-256 remains the authoritative binary identity.
-- org.apache.commons:commons-fileupload2-jakarta:jar:2.0.0-SNAPSHOT is a SNAPSHOT dependency. Its generic Maven version does not identify the timestamped build used when Loophole created the already-shaded release JAR. The official Bastillion release JAR SHA-256 remains the authoritative binary identity.
+- None.
 
 ## Validation
 
