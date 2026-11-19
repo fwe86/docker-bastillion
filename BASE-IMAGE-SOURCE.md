@@ -2,7 +2,7 @@
 
 The published image was built from the immutable base image:
 
-eclipse-temurin:21-jre-noble@sha256:0d57a8e90c2bb844c5a8e1b2b71e11eff06dad7edcfd803cd21ed4ae203b2515
+eclipse-temurin:21-jre-noble@sha256:977602aad3cf25b74bbb4c8e7532060eef80e1f1288932da35f5fbecd6159b65
 
 The exact platform manifests inspected for package/source mapping were:
 
@@ -13,16 +13,16 @@ Complete corresponding source material collected for the Ubuntu packages
 present in both published architectures and for the Eclipse Temurin/OpenJDK
 runtime is available without charge through both of these locations:
 
-- OCI/GHCR artifact: ghcr.io/fwe86/docker-bastillion@sha256:815348800d95302a64ef7bc811585e253181a45dd23a9c0ec75a3dc2106977f3
-- GitHub Release asset: https://github.com/fwe86/docker-bastillion/releases/download/source-6.0.4-6535b4aba7f0-0d57a8e90c2b/docker-bastillion-6.0.4-base-sources-6535b4aba7f0-0d57a8e90c2b.tar.gz
+- OCI/GHCR artifact: ghcr.io/fwe86/docker-bastillion@sha256:c2f13f930b054fe9b19985f9d67751784362eaf42940a5da18e3407e1b39ee7d
+- GitHub Release asset: https://github.com/fwe86/docker-bastillion/releases/download/source-6.0.4-02892eeaacd9-977602aad3cf/docker-bastillion-6.0.4-base-sources-02892eeaacd9-977602aad3cf.tar.gz
 
 Source archive SHA-256:
 
-9ac8b52536b8233c221e8c67372cffeb1150833fdd2df31012934980509cbfab
+418d1ecd0f2715e194c625777a00f77b08dd844fdbf83528bd67310b3a275598
 
 To retrieve the immutable OCI artifact by digest:
 
-oras pull ghcr.io/fwe86/docker-bastillion@sha256:815348800d95302a64ef7bc811585e253181a45dd23a9c0ec75a3dc2106977f3
+oras pull ghcr.io/fwe86/docker-bastillion@sha256:c2f13f930b054fe9b19985f9d67751784362eaf42940a5da18e3407e1b39ee7d
 
 The source bundle contains exact binary-to-source package inventories for
 linux/amd64 and linux/arm64, the exact Ubuntu source package versions with
